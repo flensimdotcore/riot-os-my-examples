@@ -116,7 +116,6 @@ static void button_handler(void *arg)
         else
         {
             atomic_store_u8(&led_freq, !led_freq);
-            // led_freq = !led_freq;
             btn_long_release = 0;
         }
     }
