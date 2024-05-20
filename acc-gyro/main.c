@@ -13,7 +13,8 @@ lsm6ds3_t lsm;
 #define LSM_CS (GPIO_PIN(PORT_B, 1))
 #define LSM_SA0 (GPIO_PIN(PORT_B, 0))
 
-#define KICK_THRESHOLD 200
+#define KICK_THRESHOLD 500
+#define KICK_DURATION (200 * 1000U)
 
 int main(void) {
     gpio_init(LSM_CS, GPIO_OUT);
@@ -66,29 +67,31 @@ int main(void) {
     last_y = lsm_data.acc_y;
     last_z = lsm_data.acc_z;
 
+    uint32_t kick_last_time = xtimer_now_usec();
+
+    lsm6ds3_poweron(&lsm);
+
     while (1)
     {
         int16_t x, y, z;
 
-        lsm6ds3_poweron(&lsm);
         lsm6ds3_read_acc(&lsm, &lsm_data);
-        lsm6ds3_poweroff(&lsm);
 
         x = lsm_data.acc_x;
         y = lsm_data.acc_y;
         z = lsm_data.acc_z;
 
-        printf("x %i, y %i, z %i\r\n", x, y, z);
+        // printf("x %i, y %i, z %i\r\n", x, y, z);
 
-        if (abs(x - last_x) >= KICK_THRESHOLD || abs(y - last_y) >= KICK_THRESHOLD || abs(z - last_z) >= KICK_THRESHOLD)
+        if ((abs(x - last_x) >= KICK_THRESHOLD || abs(y - last_y) >= KICK_THRESHOLD || abs(z - last_z) >= KICK_THRESHOLD) 
+            && (((xtimer_now_usec() < kick_last_time) ? UINT32_MAX - kick_last_time + xtimer_now_usec() : xtimer_now_usec() - kick_last_time) >= KICK_DURATION))
         {
+            kick_last_time = xtimer_now();
             printf("Ouch!\r\n");
         }
 
         last_x = x;
         last_y = y;
         last_z = z;
-
-        xtimer_msleep(100);
     }
 }
