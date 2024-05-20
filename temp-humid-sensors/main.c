@@ -10,11 +10,66 @@
 
 #include "shell.h"
 #include "shell_lock.h"
+#include "string.h"
+#include "strings.h"
 
 static bmx280_t bmx280;
 static dht_t dht;
 #define DHT_GND (GPIO_PIN(PORT_A, 0))
 #define DHT_VCC (GPIO_PIN(PORT_A, 2))
+
+static char line_buf[60];
+
+static int get_bme(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    
+    int bme_temp_c = bmx280_read_temperature(&bmx280);
+    int bme_hum = bme280_read_humidity(&bmx280);
+    int bme_temp_f = ((bme_temp_c * 9) / 5) + 3200;
+
+    if (strcmp(argv[1], "-F") == 0)
+    {
+        printf("BME280: T = %i.%iF, H = %i.%i%%\r\n", bme_temp_f/100, bme_temp_f%10, bme_hum/100, bme_hum%10);
+    }
+    else
+    {
+        printf("BME280: T = %i.%iC, H = %i.%i%%\r\n", bme_temp_c/100, bme_temp_c%10, bme_hum/100, bme_hum%10);
+    }
+
+    return 0;
+}
+
+static int get_dht(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    
+    int16_t dht_temp_c, dht_hum, dht_temp_f;
+
+    if (dht_read(&dht, &dht_temp_c, &dht_hum) != DHT_OK)
+    {
+        printf("Error reading values from DHT!\r\n");
+    }
+    else if (strcmp(argv[1], "-F") == 0)
+    {
+        dht_temp_f = ((dht_temp_c * 9) / 5) + 320;
+        printf("DHT11:  T = %i.%iF, H = %i.%i%%\r\n", dht_temp_f/10, dht_temp_f%10, dht_hum/10, dht_hum%10);
+    }
+    else
+    {
+        printf("DHT11:  T = %i.%iC, H = %i.%i%%\r\n", dht_temp_c/10, dht_temp_c%10, dht_hum/10, dht_hum%10);
+    }
+
+    return 0;
+}
+
+static const shell_command_t shell_commands[] = {
+    { "getbme", "Get the bme280's values", get_bme},
+    { "getdht", "Get the dht's values", get_dht},
+    { NULL, NULL, NULL }
+};
 
 int main(void) {
     gpio_init(DHT_GND, GPIO_OUT);
@@ -58,21 +113,10 @@ int main(void) {
         printf("\rDHT11 initialization failed!\r\n");
     }
 
+    shell_run(shell_commands, line_buf, sizeof(line_buf));
+
     while (1)
     {
-        int bme_temp = bmx280_read_temperature(&bmx280);
-        int bme_hum = bme280_read_humidity(&bmx280);
 
-        int16_t dht_temp, dht_hum;
-
-        printf("BME280: T = %i.%iC, H = %i.%i%%\t", bme_temp/100, bme_temp%10, bme_hum/100, bme_hum%10);
-        if (dht_read(&dht, &dht_temp, &dht_hum) != DHT_OK)
-        {
-            printf("Error reading values from DHT!");
-        }
-        else
-        {
-            printf("DHT11:  T = %i.%iC, H = %i.%i%%\r\n", dht_temp/10, dht_temp%10, dht_hum/10, dht_hum%10);
-        }
     }
 }
